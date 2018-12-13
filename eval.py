@@ -75,9 +75,9 @@ def evaluate(segmentation_module, loader, args):
                 # forward pass
                 torch.cuda.synchronize()
                 start_time = timeit.default_timer()
-                print("segSize = ", segSize)
+                # print("segSize = ", segSize)
                 pred_tmp = segmentation_module(feed_dict, segSize=segSize)
-                print("pred_tmp: ", pred_tmp.size())
+                # print("pred_tmp: ", pred_tmp.size())
                 torch.cuda.synchronize()
                 elapsed = timeit.default_timer() - start_time
                 print('inference time:{}, segSize:{}'.format(elapsed, segSize))

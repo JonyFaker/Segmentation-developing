@@ -4,14 +4,35 @@ import torchvision
 import torch.nn.functional as F
 from . import resnet, resnext, mobilenet
 from lib.nn import SynchronizedBatchNorm2d
+from lib.utils import as_numpy, mark_volatile
+from utils import AverageMeter, colorEncode, accuracy, intersectionAndUnion
+from scipy.io import loadmat
 from torchvision.models import resnet18
 
+import cv2
+import os
 import math
 from .blocks import ASPPBlock, SCSEBlock, InvertedResidual, conv_bn
 from collections import OrderedDict
 from functools import partial
 
 from models.build_contextpath import build_contextpath
+
+
+import random
+def visualize_result(preds):
+    colors = loadmat('data/color150.mat')['colors']
+
+    # prediction
+    pred_color = colorEncode(preds, colors)
+    pred_color = cv2.resize(pred_color, (480, 640))
+
+    count = str(random.randint(0,1000))
+    img_name = count+'.jpg'
+    cv2.imwrite(os.path.join('temp/result_during_training',
+                img_name.replace('.jpg', '.png')), pred_color)
+
+
 
 class SegmentationModuleBase(nn.Module):
     def __init__(self):
@@ -43,6 +64,13 @@ class SegmentationModule(SegmentationModuleBase):
                     (pred, pred_deepsup) = self.encoder(feed_dict['img_data'])
                 else:
                     pred =  self.encoder(feed_dict['img_data'])
+                    ## visualize_result here ###
+                    pred_ = pred[0];
+                    pred_temp = torch.zeros(1, 14, 60, 80) # 1/8
+                    pred_temp = pred_temp + pred_.cpu()
+                    _, preds = torch.max(pred_temp.data.cpu(), dim=1)
+                    preds = as_numpy(preds.squeeze(0))
+                    visualize_result(preds)
             else:
                 if self.deep_sup_scale is not None: # use deep supervision technique
                     (pred, pred_deepsup) = self.decoder(self.encoder(feed_dict['img_data'], return_feature_maps=True))

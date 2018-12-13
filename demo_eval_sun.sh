@@ -1,1 +1,1 @@
-python3 eval.py --visualize --gpu_id 1 --id BiseNet --suffix _epoch_1.pth --arch_encoder='BiseNet' --arch_decoder='ppm_bilinear' --imgMaxSize 700 --list_val ./data/test_sun.odgt --num_class 14 --result ./result_sun_eval
+python3 eval.py --visualize --gpu_id 3 --id BiseNet-sun13 --suffix _epoch_1.pth --arch_encoder='BiseNet' --arch_decoder='ppm_bilinear' --imgMaxSize 700 --list_val ./data/test_sun.odgt --num_class 14 --result ./result_sun_eval

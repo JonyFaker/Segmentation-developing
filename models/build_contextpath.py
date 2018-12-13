@@ -454,8 +454,8 @@ def resnet18_origin(pretrained=False, **kwargs):
 class resnet18(torch.nn.Module):
     def __init__(self, pretrained=True):
         super().__init__()
-        self.features = models.resnet18(pretrained=pretrained)
-        # self.features = resnet18_origin(pretrained=pretrained)
+        # self.features = models.resnet18(pretrained=pretrained)
+        self.features = resnet18_origin(pretrained=False)
         self.conv1 = self.features.conv1
         self.bn1 = self.features.bn1
         self.relu = self.features.relu

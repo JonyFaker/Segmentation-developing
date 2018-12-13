@@ -16,6 +16,7 @@ from lib.nn import UserScatteredDataParallel, user_scattered_collate, patch_repl
 import lib.utils.data as torchdata
 import numpy as np
 
+
 # train one epoch
 def train(segmentation_module, iterator, optimizers, history, epoch, args):
     batch_time = AverageMeter()
