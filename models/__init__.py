@@ -1,2 +1,1 @@
-import torchvision.models as models
-
+from .models import ModelBuilder, SegmentationModule

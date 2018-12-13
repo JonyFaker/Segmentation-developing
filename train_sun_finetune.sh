@@ -1,0 +1,1 @@
+ python3 train_finetune.py --num_gpus 2 --batch_size_per_gpu 2 --imgMaxSize 700 --workers 2 --list_train ./data/train_sun.odgt --list_val ./data/test_sun.odgt --num_class 14 --weights_encoder ./baseline-resnet50_dilated8-ppm_bilinear_deepsup/encoder_epoch_20.pth --weights_decoder ./baseline-resnet50_dilated8-ppm_bilinear_deepsup/decoder_epoch_20.pth

@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0,2 python3 train.py --id='BiseNet-sun13' --arch_encoder='BiseNet' --arch_decoder='ppm_bilinear' --num_gpus 2 --batch_size_per_gpu 24 --imgMaxSize 700 --workers 2 --list_train ./data/train_sun.odgt --list_val ./data/test_sun.odgt --num_class 14
