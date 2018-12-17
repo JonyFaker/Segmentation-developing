@@ -251,7 +251,7 @@ if __name__ == '__main__':
                         help='epochs to train for')
     parser.add_argument('--start_epoch', default=1, type=int,
                         help='epoch to start training. useful if continue from a checkpoint')
-    parser.add_argument('--epoch_iters', default=2000, type=int,
+    parser.add_argument('--epoch_iters', default=5000, type=int,
                         help='iterations of each epoch (irrelevant to batch size)')
     parser.add_argument('--optim', default='SGD', help='optimizer')
     parser.add_argument('--lr_encoder', default=2e-2, type=float, help='LR')

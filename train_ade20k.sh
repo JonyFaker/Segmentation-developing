@@ -1,1 +1,1 @@
-CUDA_VISIBLE_DEVICES=2,3 python3 train.py --id='BiseNet-ade20k' --arch_encoder='BiseNet' --arch_decoder='ppm_bilinear' --num_gpus 2 --batch_size_per_gpu 4 --imgMaxSize 700 --workers 2 --list_train ./data/train.odgt --list_val ./data/validation.odgt --num_class 150
+CUDA_VISIBLE_DEVICES=0,1 python3 train.py --id='BiseNet-ade20k' --arch_encoder='BiseNet' --arch_decoder='ppm_bilinear' --num_gpus 2 --batch_size_per_gpu 4 --imgMaxSize 700 --workers 2 --list_train ./data/train.odgt --list_val ./data/validation.odgt --num_class 150

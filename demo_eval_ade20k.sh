@@ -1,1 +1,1 @@
-python3 eval.py --visualize --gpu_id 1 --id BiseNet-ade20k --suffix _epoch_6.pth --arch_encoder='BiseNet' --arch_decoder='ppm_bilinear' --imgMaxSize 700 --list_val ./data/validation.odgt --num_class 150 --result ./result_ade20k_eval
+python3 eval.py --visualize --gpu_id 1 --id BiseNet-ade20k --suffix _epoch_20.pth --arch_encoder='BiseNet' --arch_decoder='ppm_bilinear' --imgMaxSize 700 --list_val ./data/validation.odgt --num_class 150 --result ./result_ade20k_eval

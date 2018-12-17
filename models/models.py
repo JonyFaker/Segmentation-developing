@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision
+from torchvision import models
 import torch.nn.functional as F
 from . import resnet, resnext, mobilenet
 from lib.nn import SynchronizedBatchNorm2d
@@ -65,12 +66,12 @@ class SegmentationModule(SegmentationModuleBase):
                 else:
                     pred =  self.encoder(feed_dict['img_data'])
                     ## visualize_result here ###
-                    pred_ = pred[0];
-                    pred_temp = torch.zeros(1, 14, 60, 80) # 1/8
-                    pred_temp = pred_temp + pred_.cpu()
-                    _, preds = torch.max(pred_temp.data.cpu(), dim=1)
-                    preds = as_numpy(preds.squeeze(0))
-                    visualize_result(preds)
+                    # pred_ = pred[0];
+                    # pred_temp = torch.zeros(1, 150, 60, 80) # 1/8
+                    # pred_temp = pred_temp + pred_.cpu()
+                    # _, preds = torch.max(pred_temp.data.cpu(), dim=1)
+                    # preds = as_numpy(preds.squeeze(0))
+                    # visualize_result(preds)
             else:
                 if self.deep_sup_scale is not None: # use deep supervision technique
                     (pred, pred_deepsup) = self.decoder(self.encoder(feed_dict['img_data'], return_feature_maps=True))
@@ -261,6 +262,7 @@ class ConvBlock(torch.nn.Module):
         super().__init__()
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
         self.bn = nn.BatchNorm2d(out_channels)
+        # self.bn = SynchronizedBatchNorm2d(out_channels)
         self.relu = nn.ReLU()
 
     def forward(self, input):
@@ -280,11 +282,39 @@ class Spatial_path(torch.nn.Module):
         x = self.convblock3(x)
         return x
 
+class Context_path(torch.nn.Module):
+    def __init__(self, pretrained=True):
+        super().__init__()
+        self.features = models.resnet18(pretrained=pretrained)
+        self.conv1 = self.features.conv1
+        self.bn1 = self.features.bn1
+        self.relu = self.features.relu
+        self.maxpool1 = self.features.maxpool
+        self.layer1 = self.features.layer1
+        self.layer2 = self.features.layer2
+        self.layer3 = self.features.layer3
+        self.layer4 = self.features.layer4
+
+    def forward(self, input):
+        x = self.conv1(input)
+        x = self.relu(self.bn1(x))
+        x = self.maxpool1(x)
+        feature1 = self.layer1(x)             # 1 / 4
+        feature2 = self.layer2(feature1)      # 1 / 8
+        feature3 = self.layer3(feature2)      # 1 / 16
+        feature4 = self.layer4(feature3)      # 1 / 32
+        # global average pooling to build tail
+        tail = torch.mean(feature4, 3, keepdim=True)
+        tail = torch.mean(tail, 2, keepdim=True)
+        return feature3, feature4, tail
+
+
 class AttentionRefinementModule(torch.nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
         self.bn = nn.BatchNorm2d(out_channels)
+        # self.bn = SynchronizedBatchNorm2d(out_channels)
         self.sigmoid = nn.Sigmoid()
         self.in_channels = in_channels
     def forward(self, input):
@@ -333,7 +363,8 @@ class BiSeNet(torch.nn.Module):
         self.saptial_path = Spatial_path()
 
         # build context path
-        self.context_path = build_contextpath(name=context_path)
+        # self.context_path = build_contextpath(name=context_path)
+        self.context_path = Context_path(pretrained=True)
 
         # build attention refinement module
         # self.attention_refinement_module1 = AttentionRefinementModule(1024, 1024)
@@ -375,7 +406,7 @@ class BiSeNet(torch.nn.Module):
         if self.use_softmax:
             # upsampling
             result = torch.nn.functional.upsample(result, scale_factor=8, mode='bilinear', align_corners=False)
-            result = self.conv(result)
+            # result = self.conv(result)
             result = nn.functional.softmax(result, dim=1)
             return result
 
