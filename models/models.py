@@ -18,6 +18,7 @@ from collections import OrderedDict
 from functools import partial
 
 from models.build_contextpath import build_contextpath
+from .xception import AlignedXception
 
 
 import random
@@ -364,7 +365,8 @@ class BiSeNet(torch.nn.Module):
 
         # build context path
         # self.context_path = build_contextpath(name=context_path)
-        self.context_path = Context_path(pretrained=True)
+        # self.context_path = Context_path(pretrained=True)
+        self.context_path = AlignedXception(BatchNorm=nn.BatchNorm2d, pretrained=True, output_stride=16)
 
         # build attention refinement module
         # self.attention_refinement_module1 = AttentionRefinementModule(1024, 1024)
@@ -410,6 +412,7 @@ class BiSeNet(torch.nn.Module):
             result = nn.functional.softmax(result, dim=1)
             return result
 
+        result = torch.nn.functional.upsample(result, scale_factor=8, mode='bilinear', align_corners=False)
         result = nn.functional.log_softmax(result, dim=1)
         return result
 
