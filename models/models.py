@@ -18,7 +18,8 @@ from collections import OrderedDict
 from functools import partial
 
 from models.build_contextpath import build_contextpath
-from .xception import AlignedXception
+from .AlignedXception import AlignedXception
+from .xception import *
 
 
 import random
@@ -336,7 +337,7 @@ class FeatureFusionModule(torch.nn.Module):
         super().__init__()
         # self.in_channels = input_1.channels + input_2.channels
         # self.in_channels = 3328
-        self.in_channels = 1024
+        self.in_channels = 1496
         self.convblock = ConvBlock(in_channels=self.in_channels, out_channels=num_classes, stride=1)
         self.conv1 = nn.Conv2d(num_classes, num_classes, kernel_size=1)
         self.relu = nn.ReLU()
@@ -352,7 +353,7 @@ class FeatureFusionModule(torch.nn.Module):
         x = torch.mean(feature, 3, keepdim=True)
         x = torch.mean(x, 2 ,keepdim=True)
         x = self.relu(self.conv1(x))
-        x = self.sigmoid(self.relu(x))
+        x = self.sigmoid(self.conv1(x))
         x = torch.mul(feature, x)
         x = torch.add(x, feature)
         return x
@@ -365,13 +366,13 @@ class BiSeNet(torch.nn.Module):
 
         # build context path
         # self.context_path = build_contextpath(name=context_path)
-        # self.context_path = Context_path(pretrained=True)
-        self.context_path = AlignedXception(BatchNorm=nn.BatchNorm2d, pretrained=True, output_stride=16)
+        # self.context_path = AlignedXception(BatchNorm=nn.BatchNorm2d, pretrained=True, output_stride=16)
+        self.context_path = xception(pretrained=False)
 
         # build attention refinement module
         # self.attention_refinement_module1 = AttentionRefinementModule(1024, 1024)
         # self.attention_refinement_module2 = AttentionRefinementModule(2048, 2048)
-        self.attention_refinement_module1 = AttentionRefinementModule(256, 256)
+        self.attention_refinement_module1 = AttentionRefinementModule(728, 728)
         self.attention_refinement_module2 = AttentionRefinementModule(512, 512)
 
 
@@ -412,7 +413,7 @@ class BiSeNet(torch.nn.Module):
             result = nn.functional.softmax(result, dim=1)
             return result
 
-        result = torch.nn.functional.upsample(result, scale_factor=8, mode='bilinear', align_corners=False)
+        # result = torch.nn.functional.upsample(result, scale_factor=8, mode='bilinear', align_corners=False)
         result = nn.functional.log_softmax(result, dim=1)
         return result
 
