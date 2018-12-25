@@ -284,32 +284,6 @@ class Spatial_path(torch.nn.Module):
         x = self.convblock3(x)
         return x
 
-class Context_path(torch.nn.Module):
-    def __init__(self, pretrained=True):
-        super().__init__()
-        self.features = models.resnet18(pretrained=pretrained)
-        self.conv1 = self.features.conv1
-        self.bn1 = self.features.bn1
-        self.relu = self.features.relu
-        self.maxpool1 = self.features.maxpool
-        self.layer1 = self.features.layer1
-        self.layer2 = self.features.layer2
-        self.layer3 = self.features.layer3
-        self.layer4 = self.features.layer4
-
-    def forward(self, input):
-        x = self.conv1(input)
-        x = self.relu(self.bn1(x))
-        x = self.maxpool1(x)
-        feature1 = self.layer1(x)             # 1 / 4
-        feature2 = self.layer2(feature1)      # 1 / 8
-        feature3 = self.layer3(feature2)      # 1 / 16
-        feature4 = self.layer4(feature3)      # 1 / 32
-        # global average pooling to build tail
-        tail = torch.mean(feature4, 3, keepdim=True)
-        tail = torch.mean(tail, 2, keepdim=True)
-        return feature3, feature4, tail
-
 
 class AttentionRefinementModule(torch.nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -337,7 +311,7 @@ class FeatureFusionModule(torch.nn.Module):
         super().__init__()
         # self.in_channels = input_1.channels + input_2.channels
         # self.in_channels = 3328
-        self.in_channels = 1496
+        self.in_channels = 1024
         self.convblock = ConvBlock(in_channels=self.in_channels, out_channels=num_classes, stride=1)
         self.conv1 = nn.Conv2d(num_classes, num_classes, kernel_size=1)
         self.relu = nn.ReLU()
@@ -358,6 +332,62 @@ class FeatureFusionModule(torch.nn.Module):
         x = torch.add(x, feature)
         return x
 
+
+class PSPModule(torch.nn.Module):
+    """docstring for PSPModule"""
+    def __init__(self, in_channels=256):
+        super().__init__()
+        self.pointConv = nn.Sequential(nn.Conv2d(in_channels, in_channels//4, kernel_size=1, bias=False),
+                                        SynchronizedBatchNorm2d(in_channels//4),
+                                        nn.ReLU(inplace=True)
+                                        )
+        pool_scales=(1, 2, 3, 6)
+        self.ppm = []
+        for scale in pool_scales:
+            self.ppm.append(nn.Sequential(
+                nn.AdaptiveAvgPool2d(scale),
+            ))
+        self.ppm = nn.ModuleList(self.ppm)
+
+        self.conv_last = nn.Sequential(
+            nn.Conv2d(in_channels+len(pool_scales)*(in_channels//4), in_channels,
+                      kernel_size=3, padding=1, bias=False),
+            SynchronizedBatchNorm2d(in_channels),
+            # nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+            nn.Dropout2d(0.1),
+            # nn.Conv2d(256, in_channels, kernel_size=1)
+        )
+
+        self.conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+        self.bn = nn.BatchNorm2d(in_channels)
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+        
+    def forward(self, input):
+        input_size = input.size()
+        x = self.pointConv(input)
+
+        ppm_out = [input]
+        for pool_scale in self.ppm:
+            ppm_out.append(nn.functional.upsample(
+                pool_scale(x),
+                (input_size[2], input_size[3]),
+                mode='bilinear', align_corners=False))
+        ppm_out = torch.cat(ppm_out, 1)
+
+        ppm_out = self.conv_last(ppm_out)
+
+        x = torch.mean(ppm_out, 3, keepdim=True)
+        x = torch.mean(x, 2 ,keepdim=True)
+        x = self.conv(x)
+        x = self.bn(x)
+        x = self.sigmoid(x)
+
+        x = torch.mul(ppm_out, x)
+
+        return x
+
 class BiSeNet(torch.nn.Module):
     def __init__(self, num_classes=14, context_path='resnet18', use_softmax=False):
         super().__init__()
@@ -365,19 +395,24 @@ class BiSeNet(torch.nn.Module):
         self.saptial_path = Spatial_path()
 
         # build context path
-        # self.context_path = build_contextpath(name=context_path)
+        self.context_path = build_contextpath(name=context_path)
         # self.context_path = AlignedXception(BatchNorm=nn.BatchNorm2d, pretrained=True, output_stride=16)
-        self.context_path = xception(pretrained=False)
+        # self.context_path = xception(pretrained=False)
 
         # build attention refinement module
         # self.attention_refinement_module1 = AttentionRefinementModule(1024, 1024)
         # self.attention_refinement_module2 = AttentionRefinementModule(2048, 2048)
-        self.attention_refinement_module1 = AttentionRefinementModule(728, 728)
-        self.attention_refinement_module2 = AttentionRefinementModule(512, 512)
+        # self.attention_refinement_module1 = AttentionRefinementModule(256, 256)
+        # self.attention_refinement_module2 = AttentionRefinementModule(512, 512)
+
+        self.attention_refinement_module1 = PSPModule(256)
+        self.attention_refinement_module2 = PSPModule(512)
 
 
         # build feature fusion module
         self.feature_fusion_module = FeatureFusionModule(num_classes)
+
+        self.psp = PSPModule(num_classes)
 
         # build final convolution
         self.conv = nn.Conv2d(in_channels=num_classes, out_channels=num_classes, kernel_size=1)
@@ -391,7 +426,7 @@ class BiSeNet(torch.nn.Module):
         # print("sx.size=", sx.size())
 
         # output of context path
-        cx1, cx2, tail = self.context_path(input)
+        _, cx1, cx2, tail = self.context_path(input) # _ is 1/8, used as deep supervision loss
         # print("cx1.size=", cx1.size())
         # print("cx2.size=", cx2.size())
         # print("tail.size=", tail.size())
@@ -406,6 +441,12 @@ class BiSeNet(torch.nn.Module):
         # output of feature fusion module
         result = self.feature_fusion_module(sx, cx)
 
+        '''
+        here build multi-scale global pooling structure, like PSPNet, plus conv 1*1
+        '''
+        result = self.psp(result)
+
+
         if self.use_softmax:
             # upsampling
             result = torch.nn.functional.upsample(result, scale_factor=8, mode='bilinear', align_corners=False)
@@ -415,7 +456,8 @@ class BiSeNet(torch.nn.Module):
 
         # result = torch.nn.functional.upsample(result, scale_factor=8, mode='bilinear', align_corners=False)
         result = nn.functional.log_softmax(result, dim=1)
-        return result
+        _ = nn.functional.log_softmax(_, dim=1)
+        return result, _
 
 ############BiSeNet#########BiSeNet#####BiSeNet#######BiSeNet###########BiSeNet########BiSeNet#############
 

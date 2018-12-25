@@ -205,7 +205,7 @@ if __name__ == '__main__':
     # Misc arguments
     parser.add_argument('--ckpt', default='./ckpt',
                         help='folder to output checkpoints')
-    parser.add_argument('--visualize', action='store_true',
+    parser.add_argument('--visualize', action='store_true', default=False,
                         help='output visualization?')
     parser.add_argument('--result', default='./result',
                         help='folder to output visualization results')

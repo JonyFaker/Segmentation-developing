@@ -454,8 +454,8 @@ def resnet18_origin(pretrained=False, **kwargs):
 class resnet18(torch.nn.Module):
     def __init__(self, pretrained=True):
         super().__init__()
-        # self.features = models.resnet18(pretrained=pretrained)
-        self.features = resnet18_origin(pretrained=False)
+        self.features = models.resnet18(pretrained=pretrained)
+        # self.features = resnet18_origin(pretrained=False)
         self.conv1 = self.features.conv1
         self.bn1 = self.features.bn1
         self.relu = self.features.relu
@@ -482,7 +482,7 @@ class resnet18(torch.nn.Module):
         # print("tail = ", tail.size())
         tail = torch.mean(tail, 2, keepdim=True)
         # print("tail = ", tail.size())
-        return feature3, feature4, tail
+        return feature2, feature3, feature4, tail
 
 
 class resnet101(torch.nn.Module):
@@ -518,7 +518,7 @@ def build_contextpath(name):
     # import pdb
     # pdb.set_trace()
     model = {
-        'resnet18': resnet18(pretrained=False),
-        'resnet101': resnet101(pretrained=False)
+        'resnet18': resnet18(pretrained=True),
+        'resnet101': resnet101(pretrained=True)
     }
     return model[name]
