@@ -16,6 +16,9 @@ from lib.nn import UserScatteredDataParallel, user_scattered_collate, patch_repl
 import lib.utils.data as torchdata
 import numpy as np
 
+from tensorboardX import SummaryWriter
+
+writer = SummaryWriter(comment='sg')
 
 # train one epoch
 def train(segmentation_module, iterator, optimizers, history, epoch, args):
@@ -66,6 +69,9 @@ def train(segmentation_module, iterator, optimizers, history, epoch, args):
             history['train']['epoch'].append(fractional_epoch)
             history['train']['loss'].append(loss.data[0])
             history['train']['acc'].append(acc.data[0])
+
+            writer.add_scalar('train/loss', loss.item(), i+args.epoch_iters*(epoch-1))
+            writer.add_scalar('train/Acc', acc.item(), i+args.epoch_iters*(epoch-1))
 
         # adjust learning rate
         cur_iter = i + (epoch - 1) * args.epoch_iters
@@ -212,6 +218,7 @@ def main(args):
         # checkpointing
         checkpoint(nets, history, args, epoch)
 
+    writer.close()
     print('Training Done!')
 
 

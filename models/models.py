@@ -335,13 +335,13 @@ class FeatureFusionModule(torch.nn.Module):
 
 class PSPModule(torch.nn.Module):
     """docstring for PSPModule"""
-    def __init__(self, in_channels=256):
+    def __init__(self, in_channels=256, pool_scales=(1,2)):
         super().__init__()
-        self.pointConv = nn.Sequential(nn.Conv2d(in_channels, in_channels//4, kernel_size=1, bias=False),
-                                        SynchronizedBatchNorm2d(in_channels//4),
+        self.pointConv = nn.Sequential(nn.Conv2d(in_channels, in_channels//len(pool_scales), kernel_size=1, bias=False),
+                                        SynchronizedBatchNorm2d(in_channels//len(pool_scales)),
                                         nn.ReLU(inplace=True)
                                         )
-        pool_scales=(1, 2, 3, 6)
+        # pool_scales=(1, 2, 3, 6)
         self.ppm = []
         for scale in pool_scales:
             self.ppm.append(nn.Sequential(
@@ -350,7 +350,7 @@ class PSPModule(torch.nn.Module):
         self.ppm = nn.ModuleList(self.ppm)
 
         self.conv_last = nn.Sequential(
-            nn.Conv2d(in_channels+len(pool_scales)*(in_channels//4), in_channels,
+            nn.Conv2d(in_channels+len(pool_scales)*(in_channels//len(pool_scales)), in_channels,
                       kernel_size=3, padding=1, bias=False),
             SynchronizedBatchNorm2d(in_channels),
             # nn.BatchNorm2d(512),
@@ -363,7 +363,7 @@ class PSPModule(torch.nn.Module):
         self.bn = nn.BatchNorm2d(in_channels)
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
-        
+
     def forward(self, input):
         input_size = input.size()
         x = self.pointConv(input)
@@ -405,8 +405,8 @@ class BiSeNet(torch.nn.Module):
         # self.attention_refinement_module1 = AttentionRefinementModule(256, 256)
         # self.attention_refinement_module2 = AttentionRefinementModule(512, 512)
 
-        self.attention_refinement_module1 = PSPModule(256)
-        self.attention_refinement_module2 = PSPModule(512)
+        self.attention_refinement_module1 = PSPModule(256,(3,6))
+        self.attention_refinement_module2 = PSPModule(512,(1,2))
 
 
         # build feature fusion module
@@ -444,7 +444,7 @@ class BiSeNet(torch.nn.Module):
         '''
         here build multi-scale global pooling structure, like PSPNet, plus conv 1*1
         '''
-        result = self.psp(result)
+        # result = self.psp(result)
 
 
         if self.use_softmax:
@@ -457,7 +457,7 @@ class BiSeNet(torch.nn.Module):
         # result = torch.nn.functional.upsample(result, scale_factor=8, mode='bilinear', align_corners=False)
         result = nn.functional.log_softmax(result, dim=1)
         _ = nn.functional.log_softmax(_, dim=1)
-        return result, _
+        return result
 
 ############BiSeNet#########BiSeNet#####BiSeNet#######BiSeNet###########BiSeNet########BiSeNet#############
 
